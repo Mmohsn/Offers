@@ -2,3 +2,4 @@ Flask
 tqdm
 gunicorn
 pandas
+requests
