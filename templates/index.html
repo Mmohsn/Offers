@@ -3,48 +3,948 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Offers Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <title>Voucher Analytics Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3f37c9;
+            --accent: #4895ef;
+            --background: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-primary: #212529;
+            --text-secondary: #6c757d;
+            --success: #4cc9f0;
+            --danger: #f72585;
+            --warning: #f8961e;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--background);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        header h1 {
+            color: var(--primary);
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            font-size: 2.5rem;
+        }
+
+        header p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            padding: 1.5rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-title {
+            font-size: 1.4rem;
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .filters-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .filters {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 0;
+        }
+
+        .filter-btn {
+            padding: 0.6rem 1.2rem;
+            background-color: #f1f3f5;
+            border: none;
+            border-radius: 30px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .filter-btn:hover, .filter-btn.active {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .refresh-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            background-color: #f1f3f5;
+            color: var(--text-secondary);
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .refresh-btn:hover {
+            background-color: var(--primary);
+            color: white;
+            transform: rotate(180deg);
+        }
+
+        .refresh-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .summary-card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            padding: 1.5rem;
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .summary-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .summary-card:nth-child(1) {
+            border-top: 4px solid var(--primary);
+        }
+
+        .summary-card:nth-child(2) {
+            border-top: 4px solid var(--success);
+        }
+
+        .summary-card:nth-child(3) {
+            border-top: 4px solid var(--danger);
+        }
+
+        .summary-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 0.5rem 0;
+            color: var(--text-primary);
+        }
+
+        .summary-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 300px;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(67, 97, 238, 0.1);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spinner 1s linear infinite;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+        }
+
+        .highlight {
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1.5rem;
+        }
+
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        th {
+            background-color: #f8f9fa;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        @keyframes spinner {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: var(--accent);
+            width: 0;
+            border-radius: 4px;
+            transition: width 1.5s ease-in-out;
+        }
+
+        /* Search bar styles */
+        .search-container {
+            margin-bottom: 2rem;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.8rem 1.2rem;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 4px 15px rgba(67, 97, 238, 0.1);
+        }
+
+        .search-input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .search-btn {
+            margin-top: 0.5rem;
+            padding: 0.8rem 1.5rem;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 100%;
+        }
+
+        .search-btn:hover {
+            background-color: var(--secondary);
+            transform: translateY(-2px);
+        }
+
+        .offer-details {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            display: none;
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        .offer-details h3 {
+            color: var(--primary);
+            margin-bottom: 1rem;
+            border-bottom: 1px solid #e9ecef;
+            padding-bottom: 0.5rem;
+        }
+
+        .offer-detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .detail-item {
+            margin-bottom: 1rem;
+        }
+
+        .detail-label {
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 0.3rem;
+        }
+
+        .detail-value {
+            font-size: 1.1rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            .summary {
+                grid-template-columns: 1fr;
+            }
+            
+            .card-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+            
+            .filters {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
 </head>
 <body>
-    <header>
-        <!-- Correct path for image -->
-        <img src="{{ url_for('static', filename='assets/fawry.png') }}" alt="Logo" class="logo">
-      </header>
-    <div class="table-container">
-        <h1 class="table-title">OFFER DETAILS</h1>
+    <div class="container">
+        <header>
+            <h1>Voucher Analytics Dashboard</h1>
+            <p>Monitor and analyze voucher distribution in real-time</p>
+        </header>
 
-        <!-- Scrollable Table Container -->
-        <div class="styled-table-container hidden" id="offers-table-container">
-            <table id="offers-table" class="styled-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Merchant</th>
-                        <th>Offer Name</th>
-                        <th>Status</th>
-                        <th>Start Date</th>
-                        <th>End Date</th>
-                        <th>Coupons Count</th>
-                        <th>Assigned Coupons</th>
-                        <th>Used Coupons</th>
-                        <th>Remaining</th>
-                    </tr>
-                </thead>
-                <tbody id="table-body"></tbody>
-            </table>
+        <div class="search-container">
+            <input type="text" id="offer-search" class="search-input" placeholder="Search by Offer ID...">
+            <button id="search-btn" class="search-btn">Search</button>
         </div>
 
-        <!-- Loading Bar -->
-        <div id="loading-bar" class="hidden">
-            <div class="loader"></div>
-            <p>Loading, please wait...</p>
+        <div id="offer-details" class="offer-details">
+            <h3>Offer Details</h3>
+            <div class="offer-detail-grid">
+                <!-- Details will be populated here -->
+            </div>
         </div>
 
-        <!-- Get Offers Button -->
-        <button id="get-offers-btn" class="btn">Get Offers</button>
+        <div class="summary" id="summary">
+            <div class="summary-card fade-in">
+                <div class="summary-label">Total Vouchers</div>
+                <div class="summary-value" id="total-vouchers">0</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 100%; background-color: var(--primary);"></div>
+                </div>
+            </div>
+            <div class="summary-card fade-in" style="animation-delay: 0.2s">
+                <div class="summary-label">Assigned Vouchers</div>
+                <div class="summary-value" id="assigned-vouchers">0</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="assigned-progress" style="background-color: var(--success);"></div>
+                </div>
+            </div>
+            <div class="summary-card fade-in" style="animation-delay: 0.4s">
+                <div class="summary-label">Remaining Vouchers</div>
+                <div class="summary-value" id="remaining-vouchers">0</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="remaining-progress" style="background-color: var(--danger);"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboard">
+            <div class="card fade-in" style="animation-delay: 0.6s">
+                <div class="card-header">
+                    <div class="card-title">Voucher Distribution</div>
+                    <div class="filters-container">
+                        <div class="filters">
+                            <button class="filter-btn active" data-filter="all">All Vouchers</button>
+                            <button class="filter-btn" data-filter="assigned">Assigned</button>
+                            <button class="filter-btn" data-filter="remaining">Remaining</button>
+                        </div>
+                        <button id="refresh-btn" class="refresh-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M23 4v6h-6"></path>
+                                <path d="M1 20v-6h6"></path>
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"></path>
+                                <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div id="chart-container" class="chart-container">
+                    <div class="loading" id="loading">
+                        <div class="spinner"></div>
+                    </div>
+                    <canvas id="voucherChart"></canvas>
+                </div>
+            </div>
+
+            <div class="card fade-in" style="animation-delay: 0.8s">
+                <div class="card-header">
+                    <div class="card-title">Voucher Details</div>
+                </div>
+                <div id="table-container">
+                    <table id="voucher-table">
+                        <thead>
+                            <tr>
+                                <th>Offer ID</th>
+                                <th>Offer Name</th>
+                                <th>Merchant</th>
+                                <th>Total</th>
+                                <th>Assigned</th>
+                                <th>Remaining</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="voucher-table-body">
+                            <!-- Data will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <script src="/static/js/scripts.js"></script>
+    <script>
+        // Globals
+        let voucherChart = null;
+        let offerData = [];
+        let currentFilter = 'all';
+
+        // Initialize the application
+        $(document).ready(function() {
+            fetchData();
+            
+            // Set up filter button clicks
+            $('.filter-btn').click(function() {
+                $('.filter-btn').removeClass('active');
+                $(this).addClass('active');
+                currentFilter = $(this).data('filter');
+                updateChart();
+            });
+
+            // Set up refresh button
+            $('#refresh-btn').click(function() {
+                $(this).addClass('rotating');
+                fetchData();
+                setTimeout(() => {
+                    $(this).removeClass('rotating');
+                }, 1000);
+            });
+
+            // Set up search functionality
+            $('#search-btn').click(function() {
+                searchOffer();
+            });
+
+            // Allow pressing Enter to search
+            $('#offer-search').keypress(function(e) {
+                if(e.which === 13) {
+                    searchOffer();
+                }
+            });
+        });
+
+        // Fetch data from the backend
+        function fetchData() {
+            $.ajax({
+                url: '/generate_offers',
+                type: 'POST',
+                contentType: 'application/json',
+                beforeSend: function() {
+                    $('#loading').show();
+                },
+                success: function(response) {
+                    if (response.success && response.data) {
+                        offerData = response.data;
+                        updateDashboard();
+                    } else {
+                        showNoData();
+                    }
+                },
+                error: function() {
+                    showNoData();
+                },
+                complete: function() {
+                    $('#loading').hide();
+                }
+            });
+        }
+
+        // Search for specific offer by ID
+        function searchOffer() {
+            const searchValue = $('#offer-search').val().trim();
+            
+            if (searchValue === '') {
+                alert('Please enter an Offer ID');
+                return;
+            }
+            
+            const foundOffer = offerData.find(offer => {
+                return offer['ID'] && offer['ID'].toString().toLowerCase() === searchValue.toLowerCase();
+            });
+            
+            if (foundOffer) {
+                displayOfferDetails(foundOffer);
+                updateSummaryForOffer(foundOffer);
+                highlightOfferInChart(foundOffer);
+            } else {
+                alert('No offer found with ID: ' + searchValue);
+                $('#offer-details').hide();
+            }
+        }
+
+        // Update summary cards for a specific offer
+        function updateSummaryForOffer(offer) {
+            // Animate summary cards to show they're being updated
+            $('.summary-card').removeClass('fade-in');
+            
+            setTimeout(() => {
+                $('#total-vouchers').text(offer['Coupons Count'].toLocaleString());
+                $('#assigned-vouchers').text(offer['Assigned Coupons'].toLocaleString());
+                $('#remaining-vouchers').text(offer['Remaining'].toLocaleString());
+                
+                // Update progress bars for single offer
+                const assignedPercentage = (offer['Assigned Coupons'] / offer['Coupons Count']) * 100;
+                const remainingPercentage = (offer['Remaining'] / offer['Coupons Count']) * 100;
+                
+                $('#assigned-progress').css('width', `${assignedPercentage}%`);
+                $('#remaining-progress').css('width', `${remainingPercentage}%`);
+                
+                // Re-apply animation
+                $('.summary-card').addClass('fade-in');
+            }, 300);
+        }
+
+        // Highlight the selected offer in the chart
+        function highlightOfferInChart(offer) {
+    if (!voucherChart) return;
+    
+    // Create a temporary array with just this offer for the chart
+    const filteredData = [offer];
+    
+    // Find the index of the offer in the data array
+    const offerIndex = offerData.findIndex(item => 
+        item['ID'] === offer['ID']
+    );
+    
+    if (offerIndex === -1) return;
+    
+    // Create a filtered dataset with just this offer
+    const labels = [offer['Merchant']];
+    
+    let datasets = [];
+    
+    if (currentFilter === 'all' || currentFilter === 'assigned') {
+        datasets.push({
+            label: 'Assigned Vouchers',
+            data: [offer['Assigned Coupons']],
+            backgroundColor: 'rgba(76, 201, 240, 0.7)',
+            borderColor: 'rgba(76, 201, 240, 1)',
+            borderWidth: 1,
+            borderRadius: 6,
+            hoverBackgroundColor: 'rgba(76, 201, 240, 0.9)',
+        });
+    }
+    
+    if (currentFilter === 'all' || currentFilter === 'remaining') {
+        datasets.push({
+            label: 'Remaining Vouchers',
+            data: [offer['Remaining']],
+            backgroundColor: 'rgba(247, 37, 133, 0.7)',
+            borderColor: 'rgba(247, 37, 133, 1)',
+            borderWidth: 1,
+            borderRadius: 6,
+            hoverBackgroundColor: 'rgba(247, 37, 133, 0.9)',
+        });
+    }
+    
+    // Update the chart to show only the selected offer
+    voucherChart.data.labels = labels;
+    voucherChart.data.datasets = datasets;
+    
+    // Set a flag indicating we're in search mode
+    voucherChart.searchMode = true;
+    // Store the searched offer for tooltip access
+    voucherChart.searchedOffer = offer;
+    
+    voucherChart.update();
+}
+
+        // Reset the chart to show all offers
+        function resetChart() {
+            updateChart();
+        }
+
+        // Display specific offer details
+        function displayOfferDetails(offer) {
+            const detailsContainer = $('#offer-details');
+            const detailsGrid = detailsContainer.find('.offer-detail-grid');
+            
+            detailsGrid.empty();
+            
+            // Add all offer properties to the details view
+            for (const [key, value] of Object.entries(offer)) {
+                const detailItem = `
+                    <div class="detail-item">
+                        <div class="detail-label">${key}</div>
+                        <div class="detail-value">${value.toLocaleString ? value.toLocaleString() : value}</div>
+                    </div>
+                `;
+                detailsGrid.append(detailItem);
+            }
+            
+            // Add a "View All" button to reset
+            detailsGrid.append(`
+                <div class="detail-item">
+                    <button id="view-all-btn" class="search-btn">View All Offers</button>
+                </div>
+            `);
+            
+            // Set up the View All button
+            $('#view-all-btn').click(function() {
+                updateDashboard();
+                detailsContainer.hide();
+            });
+            
+            detailsContainer.show();
+            
+            // Scroll to the details section
+            $('html, body').animate({
+                scrollTop: detailsContainer.offset().top - 20
+            }, 500);
+        }
+
+        // Update the entire dashboard with new data
+        function updateDashboard() {
+            updateSummary();
+            updateChart();
+            updateTable();
+        }
+
+        // Update summary cards with aggregated data
+        function updateSummary() {
+            let totalVouchers = 0;
+            let assignedVouchers = 0;
+            let remainingVouchers = 0;
+
+            offerData.forEach(offer => {
+                totalVouchers += offer['Coupons Count'];
+                assignedVouchers += offer['Assigned Coupons'];
+                remainingVouchers += offer['Remaining'];
+            });
+
+            $('#total-vouchers').text(totalVouchers.toLocaleString());
+            $('#assigned-vouchers').text(assignedVouchers.toLocaleString());
+            $('#remaining-vouchers').text(remainingVouchers.toLocaleString());
+
+            // Update progress bars
+            const assignedPercentage = (assignedVouchers / totalVouchers) * 100;
+            const remainingPercentage = (remainingVouchers / totalVouchers) * 100;
+            
+            $('#assigned-progress').css('width', `${assignedPercentage}%`);
+            $('#remaining-progress').css('width', `${remainingPercentage}%`);
+        }
+
+        // Create or update the chart based on the current filter
+        function updateChart() {
+            // Use merchant names as labels instead of offer names
+            const labels = offerData.map(offer => offer['Merchant']);
+            
+            let datasets = [];
+            
+            if (currentFilter === 'all' || currentFilter === 'assigned') {
+                datasets.push({
+                    label: 'Assigned Vouchers',
+                    data: offerData.map(offer => offer['Assigned Coupons']),
+                    backgroundColor: 'rgba(76, 201, 240, 0.7)',
+                    borderColor: 'rgba(76, 201, 240, 1)',
+                    borderWidth: 1,
+                    borderRadius: 6,
+                    hoverBackgroundColor: 'rgba(76, 201, 240, 0.9)',
+                });
+            }
+            
+            if (currentFilter === 'all' || currentFilter === 'remaining') {
+                datasets.push({
+                    label: 'Remaining Vouchers',
+                    data: offerData.map(offer => offer['Remaining']),
+                    backgroundColor: 'rgba(247, 37, 133, 0.7)',
+                    borderColor: 'rgba(247, 37, 133, 1)',
+                    borderWidth: 1,
+                    borderRadius: 6,
+                    hoverBackgroundColor: 'rgba(247, 37, 133, 0.9)',
+                });
+            }
+
+            if (voucherChart) {
+                voucherChart.data.labels = labels;
+                voucherChart.data.datasets = datasets;
+                voucherChart.update();
+            } else {
+                createNewChart(labels, datasets);
+            }
+        }
+
+        // Create a new chart instance
+        function createNewChart(labels, datasets) {
+    const ctx = document.getElementById('voucherChart').getContext('2d');
+    voucherChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: {
+                        font: {
+                            family: "'Segoe UI', sans-serif",
+                            size: 12
+                        },
+                        usePointStyle: true,
+                        padding: 20
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    titleColor: '#212529',
+                    bodyColor: '#212529',
+                    borderColor: '#e9ecef',
+                    borderWidth: 1,
+                    padding: 12,
+                    cornerRadius: 8,
+                    displayColors: true,
+                    callbacks: {
+                        // Custom tooltip to show offer name and values
+                        title: function(tooltipItems) {
+                            const index = tooltipItems[0].dataIndex;
+                            // Use searchedOffer if in search mode, otherwise use offerData
+                            if (voucherChart.searchMode && voucherChart.searchedOffer) {
+                                return voucherChart.searchedOffer['Offer Name'];
+                            }
+                            return offerData[index]['Offer Name'];
+                        },
+                        label: function(context) {
+                            return `${context.dataset.label}: ${context.raw.toLocaleString()}`;
+                        },
+                        afterLabel: function(context) {
+                            // Use searchedOffer if in search mode, otherwise use offerData
+                            let offer;
+                            if (voucherChart.searchMode && voucherChart.searchedOffer) {
+                                offer = voucherChart.searchedOffer;
+                            } else {
+                                const index = context.dataIndex;
+                                offer = offerData[index];
+                            }
+                            
+                            return [
+                                `Merchant: ${offer['Merchant']}`,
+                                `Offer ID: ${offer['ID']}`
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        maxRotation: 45,
+                        minRotation: 45,
+                        font: {
+                            family: "'Segoe UI', sans-serif",
+                            size: 10
+                        }
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: '#f1f3f5'
+                    },
+                    ticks: {
+                        font: {
+                            family: "'Segoe UI', sans-serif",
+                            size: 11
+                        },
+                        callback: function(value) {
+                            return value.toLocaleString();
+                        }
+                    }
+                }
+            },
+            animation: {
+                duration: 1500,
+                easing: 'easeOutQuart'
+            },
+            layout: {
+                padding: 10
+            },
+            barPercentage: 0.7,
+            categoryPercentage: 0.7
+        }
+    });
+    
+    // Initialize search mode flag
+    voucherChart.searchMode = false;
+    voucherChart.searchedOffer = null;
+}
+
+// Update the "View All" button function to reset the search mode
+function displayOfferDetails(offer) {
+    const detailsContainer = $('#offer-details');
+    const detailsGrid = detailsContainer.find('.offer-detail-grid');
+    
+    detailsGrid.empty();
+    
+    // Add all offer properties to the details view
+    for (const [key, value] of Object.entries(offer)) {
+        const detailItem = `
+            <div class="detail-item">
+                <div class="detail-label">${key}</div>
+                <div class="detail-value">${value.toLocaleString ? value.toLocaleString() : value}</div>
+            </div>
+        `;
+        detailsGrid.append(detailItem);
+    }
+    
+    // Add a "View All" button to reset
+    detailsGrid.append(`
+        <div class="detail-item">
+            <button id="view-all-btn" class="search-btn">View All Offers</button>
+        </div>
+    `);
+    
+    // Set up the View All button with reset for search mode
+    $('#view-all-btn').click(function() {
+        // Reset search mode flag before updating dashboard
+        if (voucherChart) {
+            voucherChart.searchMode = false;
+            voucherChart.searchedOffer = null;
+        }
+        updateDashboard();
+        detailsContainer.hide();
+    });
+    
+    detailsContainer.show();
+    
+    // Scroll to the details section
+    $('html, body').animate({
+        scrollTop: detailsContainer.offset().top - 20
+    }, 500);
+}
+
+        // Update the data table
+        function updateTable() {
+            const tableBody = $('#voucher-table-body');
+            tableBody.empty();
+            
+            offerData.forEach(offer => {
+                let status = offer['Status'];
+                let statusClass = status === 'ACTIVE' ? 'text-success' : 'text-danger';
+                
+                const row = `
+                    <tr>
+                        <td>${offer['ID'] || '-'}</td>
+                        <td>${offer['Offer Name']}</td>
+                        <td>${offer['Merchant']}</td>
+                        <td>${offer['Coupons Count'].toLocaleString()}</td>
+                        <td>${offer['Assigned Coupons'].toLocaleString()}</td>
+                        <td class="highlight">${offer['Remaining'].toLocaleString()}</td>
+                        <td class="${statusClass}">${status}</td>
+                    </tr>
+                `;
+                tableBody.append(row);
+            });
+        }
+
+        // Show "no data" message when data is unavailable
+        function showNoData() {
+            $('#chart-container').html('<div class="no-data">No voucher data available. Please try again later.</div>');
+            $('#table-container').html('<div class="no-data">No voucher data available.</div>');
+        }
+    </script>
 </body>
 </html>
