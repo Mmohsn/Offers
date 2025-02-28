@@ -20,6 +20,17 @@ def fetch_offers_data_for_current_month(offer_ids, token, link, filter_ids):
                 data = response.json()
                 if "content" in data and data['content']:
                     for item in data['content']:
+                        assigned = int(item['assignedCoupons'])
+                        used = int(item['giftConsumption'])
+                        total = int(item['couponsCount'])
+
+                        if assigned == 0:
+                            remaining = total - used
+                        elif assigned == 0 and used == 0:
+                            remaining = assigned
+                        else:
+                            remaining = total - assigned
+
                         extracted_data = {
                             "ID": item['id'],
                             "Merchant": item['merchant']['nameEn'],
@@ -27,10 +38,10 @@ def fetch_offers_data_for_current_month(offer_ids, token, link, filter_ids):
                             "Status": item['status'],
                             "Start Date": item['startDate'],
                             "End Date": item['endDate'],
-                            "Coupons Count": item['couponsCount'],
-                            "Assigned Coupons": item['assignedCoupons'],
-                            "Used Coupons": item['giftConsumption'],
-                            "Remaining": int(item['couponsCount']) - int(item['assignedCoupons'])
+                            "Coupons Count": total,
+                            "Assigned Coupons": assigned,
+                            "Used Coupons": used,
+                            "Remaining": remaining
                         }
                         results.append(extracted_data)
         except requests.exceptions.RequestException as e:
